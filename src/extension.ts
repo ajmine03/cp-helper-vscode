@@ -5,19 +5,19 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('CP Helper Activated');
+    console.log('CP Helper Activated - Multi Platform Support');
 
-    // 1. Top Right Toolbar Button
+    // Top toolbar button
     const toolbarButton = vscode.commands.registerCommand('cp-helper.toolbar', () => {
         createProblem();
     });
 
-    // 2. Command Palette এ দেখাবে
+    // Command palette
     const commandPalette = vscode.commands.registerCommand('cp-helper.create', () => {
         createProblem();
     });
 
-    // 3. Status bar button (optional - নিচে)
+    // Status bar button
     const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     statusBar.text = "$(rocket) CP Helper";
     statusBar.tooltip = "Create problem from clipboard URL";
@@ -27,82 +27,104 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(toolbarButton, commandPalette, statusBar);
 }
 
-async function createProblem() {
-    try {
-        // Get URL from clipboard
-        const clipboard = await vscode.env.clipboard.readText();
+// 🎯 URL Parser - সব প্ল্যাটফর্মের জন্য
+function parseURL(url: string): { fileName: string; platform: string; success: boolean } {
 
-        if (!clipboard.includes('codeforces.com') && !clipboard.includes('atcoder.jp')) {
-            vscode.window.showErrorMessage('❌ Copy a Codeforces or AtCoder URL first');
-            return;
-        }
+    // 1. Codeforces
+    let match = url.match(/codeforces\.com\/problemset\/problem\/(\d+)\/([A-Za-z0-9]+)/);
+    if (match) {
+        return {
+            fileName: `${match[1]}-${match[2]}.cpp`,
+            platform: 'Codeforces',
+            success: true
+        };
+    }
 
-        // Show progress
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "Creating problem file...",
-            cancellable: false
-        }, async (progress) => {
+    // 2. LightOJ
+    match = url.match(/lightoj\.com\/problem\/([a-zA-Z0-9\-]+)/);
+    if (match) {
+        let problemId = match[1].toUpperCase();
+        return {
+            fileName: `LOJ-${problemId}.cpp`,
+            platform: 'LightOJ',
+            success: true
+        };
+    }
 
-            progress.report({ message: "Parsing URL..." });
-            // Parse URL
-            let fileName = '';
-            let platform = '';
+    // 3. LeetCode
+    match = url.match(/leetcode\.com\/problems\/([a-zA-Z0-9\-]+)/);
+    if (match) {
+        let problemName = match[1].replace(/-/g, '_');
+        return {
+            fileName: `LeetCode-${problemName}.cpp`,
+            platform: 'LeetCode',
+            success: true
+        };
+    }
 
-            const cfMatch = clipboard.match(/codeforces\.com\/problemset\/problem\/(\d+)\/([A-Za-z0-9]+)/);
-            if (cfMatch) {
-                fileName = `${cfMatch[1]}-${cfMatch[2]}.cpp`;
-                platform = 'Codeforces';
-            } else {
-                const atcMatch = clipboard.match(/atcoder\.jp\/contests\/([^\/]+)\/tasks\/([^\/]+)/);
-                if (atcMatch) {
-                    fileName = `${atcMatch[2]}.cpp`;
-                    platform = 'AtCoder';
-                }
-            }
+    // 4. HackerRank
+    match = url.match(/hackerrank\.com\/contests\/([^\/]+)\/challenges\/([^\/]+)/);
+    if (match) {
+        let contest = match[1];
+        let challenge = match[2];
+        return {
+            fileName: `HackerRank-${contest}-${challenge}.cpp`,
+            platform: 'HackerRank',
+            success: true
+        };
+    }
 
-            if (!fileName) {
-                vscode.window.showErrorMessage('❌ Invalid URL format');
-                return;
-            }
+    // 5. Virtual Judge (Contest)
+    match = url.match(/vjudge\.net\/contest\/(\d+)#problem\/([A-Z])/);
+    if (match) {
+        let contestId = match[1];
+        let problemLetter = match[2];
+        return {
+            fileName: `VJudge-${contestId}-${problemLetter}.cpp`,
+            platform: 'Virtual Judge',
+            success: true
+        };
+    }
 
-            progress.report({ message: "Checking workspace..." });
-            // Get workspace
-            const folders = vscode.workspace.workspaceFolders;
-            if (!folders) {
-                vscode.window.showErrorMessage('❌ Please open a folder first (File → Open Folder)');
-                return;
-            }
+    // 6. Virtual Judge (Direct Problem)
+    match = url.match(/vjudge\.net\/problem\/([A-Za-z0-9\-]+)/);
+    if (match) {
+        let problemId = match[1];
+        return {
+            fileName: `VJudge-${problemId}.cpp`,
+            platform: 'Virtual Judge',
+            success: true
+        };
+    }
 
-            progress.report({ message: "Creating directory..." });
-            // Create problems folder
-            const problemsDir = path.join(folders[0].uri.fsPath, 'problems');
-            if (!fs.existsSync(problemsDir)) {
-                fs.mkdirSync(problemsDir);
-            }
+    // 7. AtCoder
+    match = url.match(/atcoder\.jp\/contests\/([^\/]+)\/tasks\/([^\/]+)/);
+    if (match) {
+        return {
+            fileName: `${match[2]}.cpp`,
+            platform: 'AtCoder',
+            success: true
+        };
+    }
 
-            const filePath = path.join(problemsDir, fileName);
+    // 8. Universal/Demo Pattern (sitename-problemId)
+    match = url.match(/:\/\/([^\/]+)\/.*?\/([a-zA-Z0-9\-_]+)/);
+    if (match) {
+        let sitename = match[1].replace(/\./g, '-');
+        let problemId = match[2];
+        return {
+            fileName: `${sitename}-${problemId}.cpp`,
+            platform: sitename.toUpperCase(),
+            success: true
+        };
+    }
 
-            // Check if exists
-            if (fs.existsSync(filePath)) {
-                const doc = await vscode.workspace.openTextDocument(filePath);
-                await vscode.window.showTextDocument(doc);
-                vscode.window.showInformationMessage(`📂 ${fileName} already open`);
-                return;
-            }
+    return { fileName: '', platform: '', success: false };
+}
 
-            progress.report({ message: "Fetching sample tests..." });
-            // Fetch samples
-            let samples = '';
-            try {
-                samples = await fetchSamples(clipboard);
-            } catch (error) {
-                samples = '\n/* Could not fetch samples */\n';
-            }
-
-            progress.report({ message: "Generating file..." });
-            // Generate content
-            const template = `#include <bits/stdc++.h>
+// 🎨 Platform-specific template generator
+function getPlatformTemplate(platform: string, url: string): string {
+    let baseTemplate = `#include <bits/stdc++.h>
 using namespace std;
 
 #define fastio ios::sync_with_stdio(false); cin.tie(nullptr);
@@ -117,8 +139,107 @@ int main() {
 }
 `;
 
+    // Platform-specific hints
+    let hint = '';
+    switch (platform) {
+        case 'LeetCode':
+            hint = `
+// LeetCode Note:
+// The function signature may vary. Adjust accordingly.
+// Example: vector<int> twoSum(vector<int>& nums, int target)
+`;
+            break;
+        case 'LightOJ':
+            hint = `
+// LightOJ Note:
+// Input: T test cases
+// Output: Case X: result
+`;
+            break;
+        case 'HackerRank':
+            hint = `
+// HackerRank Note:
+// Read from stdin, write to stdout
+`;
+            break;
+        case 'Virtual Judge':
+            hint = `
+// Virtual Judge Note:
+// Standard I/O. Pay attention to time limits.
+`;
+            break;
+    }
+
+    return hint + baseTemplate;
+}
+
+async function createProblem() {
+    try {
+        // Get URL from clipboard
+        const clipboard = await vscode.env.clipboard.readText();
+
+        if (!clipboard.startsWith('http')) {
+            vscode.window.showErrorMessage('❌ Copy a problem URL first (Ctrl+C)');
+            return;
+        }
+
+        // Parse URL
+        const parsed = parseURL(clipboard);
+        if (!parsed.success) {
+            vscode.window.showErrorMessage(`❌ Unsupported platform: ${clipboard}\n\nSupported: Codeforces, AtCoder, LightOJ, LeetCode, HackerRank, VJudge`);
+            return;
+        }
+
+        // Show progress
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Creating ${parsed.fileName}...`,
+            cancellable: false
+        }, async (progress) => {
+
+            // Get workspace
+            const folders = vscode.workspace.workspaceFolders;
+            if (!folders) {
+                vscode.window.showErrorMessage('❌ Please open a folder first (File → Open Folder)');
+                return;
+            }
+
+            progress.report({ message: "Creating directory..." });
+            const problemsDir = path.join(folders[0].uri.fsPath, 'problems');
+            if (!fs.existsSync(problemsDir)) {
+                fs.mkdirSync(problemsDir);
+            }
+
+            const filePath = path.join(problemsDir, parsed.fileName);
+
+            // Check if exists
+            if (fs.existsSync(filePath)) {
+                const doc = await vscode.workspace.openTextDocument(filePath);
+                await vscode.window.showTextDocument(doc);
+                vscode.window.showInformationMessage(`📂 ${parsed.fileName} already open`);
+                return;
+            }
+
+            progress.report({ message: "Fetching problem info..." });
+
+            // Try to fetch samples (only for supported platforms)
+            let samples = '';
+            if (parsed.platform === 'Codeforces' || parsed.platform === 'AtCoder') {
+                try {
+                    samples = await fetchSamples(clipboard, parsed.platform);
+                } catch (error) {
+                    samples = '\n/* Could not fetch samples */\n';
+                }
+            } else {
+                samples = '\n/* Manual testing required */\n';
+            }
+
+            progress.report({ message: "Generating file..." });
+
+            const template = getPlatformTemplate(parsed.platform, clipboard);
+
             const content = `// Problem: ${clipboard}
-// Platform: ${platform}
+// Platform: ${parsed.platform}
 // Created: ${new Date().toLocaleString()}
 
 ${template}
@@ -131,7 +252,7 @@ ${samples}
             const doc = await vscode.workspace.openTextDocument(filePath);
             await vscode.window.showTextDocument(doc);
 
-            vscode.window.showInformationMessage(`✅ Created ${fileName}`);
+            vscode.window.showInformationMessage(`✅ Created ${parsed.fileName} on ${parsed.platform}`);
         });
 
     } catch (error: any) {
@@ -139,35 +260,45 @@ ${samples}
     }
 }
 
-async function fetchSamples(url: string): Promise<string> {
-    const response = await axios.get(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        timeout: 10000
-    });
-    const $ = cheerio.load(response.data);
+async function fetchSamples(url: string, platform: string): Promise<string> {
+    try {
+        const response = await axios.get(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            timeout: 10000
+        });
+        const $ = cheerio.load(response.data);
 
-    let samples = '\n/*\n📋 Sample Test Cases\n';
-    let count = 0;
+        let samples = '\n/*\n📋 Sample Test Cases\n';
+        let count = 0;
 
-    const inputs = $('.sample-test .input pre');
-    const outputs = $('.sample-test .output pre');
+        if (platform === 'Codeforces') {
+            const inputs = $('.sample-test .input pre');
+            const outputs = $('.sample-test .output pre');
 
-    inputs.each((i, elem) => {
-        if (i < outputs.length) {
-            count++;
-            const input = $(elem).text().trim();
-            const output = $(outputs[i]).text().trim();
-            samples += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-            samples += `Sample ${count}:\n`;
-            samples += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-            samples += `Input:\n${input}\n\n`;
-            samples += `Expected Output:\n${output}\n`;
+            inputs.each((i, elem) => {
+                if (i < outputs.length) {
+                    count++;
+                    const input = $(elem).text().trim();
+                    const output = $(outputs[i]).text().trim();
+                    samples += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+                    samples += `Sample ${count}:\n`;
+                    samples += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+                    samples += `Input:\n${input}\n\n`;
+                    samples += `Expected Output:\n${output}\n`;
+                }
+            });
         }
-    });
 
-    if (count === 0) return '\n/* No samples found */\n';
-    samples += `\n*/\n`;
-    return samples;
+        if (count === 0) {
+            return '\n/* No sample test cases found */\n';
+        }
+
+        samples += `\n*/\n`;
+        return samples;
+
+    } catch (error) {
+        return '\n/* Could not fetch samples */\n';
+    }
 }
 
 export function deactivate() { }

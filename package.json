@@ -1,13 +1,13 @@
 {
   "name": "cp-helper-ajmine",
-  "displayName": "CP Helper Automation",
-  "description": "Professional Competitive Programming Automation",
-  "version": "2.0.1", 
+  "displayName": "CP Helper Automation - Multi Platform",
+  "description": "Create C++ files for Codeforces, AtCoder, LightOJ, LeetCode, HackerRank, VJudge & more",
+  "version": "2.1.3",
   "publisher": "cpautomation",
-  "icon": "icon.png", 
+  "icon": "icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cpautomation/cp-helper"
+    "url": "https://github.com/ajmine03/cp-helper-vscode"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -20,6 +20,10 @@
     "competitive programming",
     "codeforces",
     "atcoder",
+    "lightoj",
+    "leetcode",
+    "hackerrank",
+    "vjudge",
     "cpp",
     "automation"
   ],
@@ -48,14 +52,7 @@
           "when": "editorFocus"
         }
       ]
-    },
-    "keybindings": [
-      {
-        "command": "cp-helper.create",
-        "key": "ctrl+shift+p",
-        "when": "editorTextFocus"
-      }
-    ]
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",
