@@ -1,0 +1,76 @@
+{
+  "name": "cp-helper-ajmine",
+  "displayName": "CP Helper Automation",
+  "description": "Professional Competitive Programming Automation",
+  "version": "2.0.1", 
+  "publisher": "cpautomation",
+  "icon": "icon.png", 
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cpautomation/cp-helper"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "competitive programming",
+    "codeforces",
+    "atcoder",
+    "cpp",
+    "automation"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cp-helper.create",
+        "title": "CP Helper: Create Problem",
+        "category": "CP Helper"
+      },
+      {
+        "command": "cp-helper.toolbar",
+        "title": "CP Helper",
+        "category": "CP Helper"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "cp-helper.toolbar",
+          "group": "navigation",
+          "when": "editorFocus"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "cp-helper.create",
+        "key": "ctrl+shift+p",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12"
+  }
+}

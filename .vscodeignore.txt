@@ -1,0 +1,9 @@
+.gitignore
+.vscode/
+node_modules/
+src/
+tsconfig.json
+*.vsix
+.DS_Store
+*.log
+.git/
